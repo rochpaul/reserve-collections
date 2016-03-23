@@ -1,4 +1,4 @@
-package unidue.rc.ui;
+package unidue.rc.workflow;
 
 /*
  * #%L
@@ -6,7 +6,7 @@ package unidue.rc.ui;
  * $Id:$
  * $HeadURL:$
  * %%
- * Copyright (C) 2014 - 2015 Universitaet Duisburg Essen
+ * Copyright (C) 2014 - 2016 Universitaet Duisburg Essen
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,20 +22,10 @@ package unidue.rc.ui;
  * #L%
  */
 
-import java.lang.annotation.*;
+import org.quartz.Job;
 
 /**
- * Created by nils on 22.05.15.
+ * Created by nils on 16.03.16.
  */
-
-/**
- * Specifies that the class is a "protected page", one that must not be accessible by users that are not logged in.
- * This annotation is applied to a Tapestry page class. The protection is provided by {@link unidue.rc.ui.services.CollectionRequestFilter}.
- */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface ProtectedPage {
-
-    boolean isAuthenticationNeeded() default true;
+public interface CollectionWarningCronJob extends Job {
 }
