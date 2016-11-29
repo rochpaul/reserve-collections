@@ -55,6 +55,10 @@
                         <t:pagelink page="admin/ordermailrecipients"
                                     title="${message:nav.item.order.mail.recipients}">${message:nav.item.order.mail.recipients}</t:pagelink>
                     </li>
+                    <li class="${prop:getClassForLink('jobs/copyrightreviewjobs')}">
+						<t:pagelink page="jobs/copyrightreviewjobs"
+									title="${message:nav.item.review.jobs}">${message:nav.item.review.jobs}</t:pagelink>
+					</li>
                 </ul>
             </nav>
         </div>
