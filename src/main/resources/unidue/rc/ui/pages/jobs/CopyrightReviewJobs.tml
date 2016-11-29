@@ -1,5 +1,20 @@
-<html t:type="adminlayout" title="${message:copyright.review.jobs.page.title}"
-      xmlns:t="http://tapestry.apache.org/schema/tapestry_5_3.xsd">
+<!-- Ort "3" -->
+<!-- URL "5" -->
+
+<!-- Semapp 2 -->
+<!-- Eintrag -->
+<!-- X Geändert 1 -->
+<!-- Datei 4 - -->
+<!-- X Dateityp 6 -> Mapping vom Bild auf Dateityp(?) Soll übernommen werden! -->
+<!-- Status 7 -> Auch hier die Farbe übernehmen aus CopyrightReviewStatus  -->
+
+<!-- Bearbeitungsbutton (siehe scanjobs) -->
+
+
+
+<html t:type="adminlayout"
+	title="${message:copyright.review.jobs.page.title}"
+	xmlns:t="http://tapestry.apache.org/schema/tapestry_5_3.xsd">
 
 <div class="row">
 
@@ -7,19 +22,40 @@
 		<table class="table table-hover">
 			<thead>
 				<tr>
-					<th>1</th>
-					<th>2</th>
-					<th>3</th>
-					<th>4</th>
-					<th>5</th>
-					<th>6</th>
-					<th>7</th>
-					<th>8</th>
+					<th>${message:modified}</th>
+					<th>${message:reserve.collection.abbr}</th>
+					<th>${message:libraryLocation-label}</th>
+					<th>${message:filename}</th>
+					<th>${message:mime.type}</th>
+					<th>${message:status}</th>
+				</tr>
+				<tr>
 					<th></th>
-					<th></th>
+
+
+					<th><t:zone t:id="locationZone" id="locationZone"
+							update="none">
+							<t:form t:id="locationForm" t:clientValidation="none" zone="^">
+								<t:select value="fLocation" model="libraryLocationSelectModel"
+									t:id="locationFilter" id="libraryLocation" zone="jobsZone"
+									class="form-control input-sm" encoder="libraryLocationEncoder"
+									blankLabel="message:blank-label" />
+							</t:form>
+						</t:zone></th>
 				</tr>
 			</thead>
+
+			<tbody t:type="zone" t:id="jobsZone" id="jobsZone" t:update="none">
+
+			</tbody>
+
 		</table>
+		
+		<t:zone t:id="paginationZone" id="paginationZone" t:update="none">
+		
+		<t:pagination t:id="pagination" maxRowsPerPage="sys:pagination.max.rows" range="sys:pagination.range"
+                          itemCount="copyrightReviews.count"></t:pagination>
+		</t:zone>
 	</div>
 </div>
 
