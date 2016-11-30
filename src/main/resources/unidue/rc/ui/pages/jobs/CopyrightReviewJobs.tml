@@ -22,8 +22,8 @@
 		<table class="table table-hover">
 			<thead>
 				<tr>
+				<th>${message:reserve.collection.abbr}</th>
 					<th>${message:modified}</th>
-					<th>${message:reserve.collection.abbr}</th>
 					<th>${message:libraryLocation-label}</th>
 					<th>${message:filename}</th>
 					<th>${message:mime.type}</th>
@@ -46,6 +46,20 @@
 			</thead>
 
 			<tbody t:type="zone" t:id="jobsZone" id="jobsZone" t:update="none">
+			
+			 <t:loop source="copyrightReviews.items" value="review">
+			 
+			 <tr style="color: ${prop:statusColor};">
+			 
+			 <td>${review.collectionID}</td>
+			     <td>
+                                <t:output t:value="review.modified" format="modifiedOutputFormat"/>
+                            </td>
+			 
+			 
+			 </tr>
+			 
+			  </t:loop>
 
 			</tbody>
 
