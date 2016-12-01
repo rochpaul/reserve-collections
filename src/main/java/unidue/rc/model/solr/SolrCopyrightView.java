@@ -36,6 +36,8 @@ public class SolrCopyrightView {
     public static final String FILE_NAME_PROPERTY = "fileName";
     public static final String MIME_TYPE_PROPERTY = "mimeType";
     public static final String COLLECTION_TITLE_PROPERTY = "collectionTitle";
+//    public static final String LOCATION_ID_PROPERTY = "locationID";
+    public static final String LOCATION_NAME_PROPERTY = "locationName";
     public static final String REVIEW_STATUS_PROPERTY = "reviewStatus";
     public static final String SEARCH_FIELD_PROPERTY = "text";
 
@@ -68,7 +70,13 @@ public class SolrCopyrightView {
 
     @Field(COLLECTION_TITLE_PROPERTY)
     private String collectionTitle;
-
+    
+//    @Field(LOCATION_ID_PROPERTY)
+//    private String locationID;
+//    
+    @Field(LOCATION_NAME_PROPERTY)
+    private String locationName;
+    
     @Field(REVIEW_STATUS_PROPERTY)
     private int reviewStatus;
 
@@ -152,7 +160,23 @@ public class SolrCopyrightView {
         this.collectionTitle = collectionTitle;
     }
 
-    public int getReviewStatus() {
+//    public String getLocationID() {
+//		return locationID;
+//	}
+//
+//	public void setLocationID(String locationID) {
+//		this.locationID = locationID;
+//	}
+//
+	public String getLocationName() {
+		return locationName;
+	}
+
+	public void setLocationName(String locationName) {
+		this.locationName = locationName;
+	}
+
+	public int getReviewStatus() {
         return reviewStatus;
     }
 
@@ -176,6 +200,7 @@ public class SolrCopyrightView {
         if (!fileName.equals(that.fileName)) return false;
         if (!mimeType.equals(that.mimeType)) return false;
         if (!modified.equals(that.modified)) return false;
+//        if (!locationID.equals(that.locationID)) return false;
 
         return true;
     }
@@ -191,6 +216,7 @@ public class SolrCopyrightView {
         result = 31 * result + mimeType.hashCode();
         result = 31 * result + collectionTitle.hashCode();
         result = 31 * result + reviewStatus;
+//        result = 31 * result + locationID.hashCode();
         return result;
     }
 }

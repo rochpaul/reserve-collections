@@ -2,7 +2,12 @@ package unidue.rc.ui.pages.jobs;
 
 import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -13,6 +18,7 @@ import org.apache.tapestry5.annotations.InjectComponent;
 import org.apache.tapestry5.annotations.OnEvent;
 import org.apache.tapestry5.annotations.Persist;
 import org.apache.tapestry5.annotations.Property;
+import org.apache.tapestry5.annotations.SetupRender;
 import org.apache.tapestry5.corelib.components.Zone;
 import org.apache.tapestry5.ioc.Messages;
 import org.apache.tapestry5.ioc.Resource;
@@ -26,9 +32,14 @@ import unidue.rc.dao.LibraryLocationDAO;
 import unidue.rc.model.CopyrightReviewStatus;
 import unidue.rc.model.LibraryLocation;
 import unidue.rc.model.solr.SolrCopyrightView;
+import unidue.rc.model.solr.SolrScanJobView;
+import unidue.rc.search.SolrNumberQueryField;
 import unidue.rc.search.SolrQueryBuilder;
+import unidue.rc.search.SolrQueryField;
 import unidue.rc.search.SolrResponse;
 import unidue.rc.search.SolrService;
+import unidue.rc.search.SolrSortField;
+import unidue.rc.search.SolrTextQueryField;
 import unidue.rc.ui.ProtectedPage;
 import unidue.rc.ui.components.Pagination;
 import unidue.rc.ui.selectmodel.LibraryLocationSelectModel;
@@ -72,7 +83,17 @@ public class CopyrightReviewJobs {
 	@InjectComponent
 	private Pagination pagination;
 
+	// sort
+    @Persist(PersistenceConstants.SESSION)
+    private List<SolrSortField> sortStack;
+	
+	
 	// Filter
+	@Property
+	@Persist(PersistenceConstants.SESSION)
+	private Integer collectionID;
+	
+	
 	@Property
 	@Persist(PersistenceConstants.SESSION)
 	private LibraryLocation fLocation;
@@ -81,6 +102,21 @@ public class CopyrightReviewJobs {
 	@Persist(PersistenceConstants.SESSION)
 	private Integer fNumber;
 
+	
+	@SetupRender
+    void onSetupRender() {
+
+        if (sortStack == null)
+            sortStack = new LinkedList<>();
+    }
+
+	
+	
+	
+	
+	
+	
+	
 	public SelectModel getLibraryLocationSelectModel() {
 		return new LibraryLocationSelectModel(libraryLocationDAO);
 	}
@@ -90,8 +126,8 @@ public class CopyrightReviewJobs {
 	}
 
 	// Filter changed
-	@OnEvent(value = "filterNumberChanged")
-	Object onFilterNumberChanged() {
+	@OnEvent(value = "collectionIDChanged")
+	Object onCollectionIDChanged() {
 		String param = request.getParameter("param");
 		fNumber = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
 
@@ -109,50 +145,95 @@ public class CopyrightReviewJobs {
 		return request.isXHR() ? jobsZone.getBody() : this;
 	}
 
-	public SolrResponse getCopyrightReviews() {
+	
+	
+	  public SolrResponse getCopyrightReviews() {
 
-		try {
-			// filter by query string
-			SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
+	        sortStack = sortStack == null
+	                    ? Collections.EMPTY_LIST
+	                    : sortStack;
+	        try {
+	            SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
 
-			// if (query != null &&
-			// appliedFilter.contains(CopyrightFilter.QUERY_FILTER)) {
-			// queryBuilder.singleCondition(SolrCopyrightView.SEARCH_FIELD_PROPERTY,
-			// this.query);
-			// }
-			//
-			// // apply select filters
-			// if (mimeFilter != null &&
-			// appliedFilter.contains(CopyrightFilter.MIME_FILTER))
-			// queryBuilder.singleCondition(SolrCopyrightView.MIME_TYPE_PROPERTY,
-			// mimeFilter);
-			// if (reviewStatusFilter != null &&
-			// appliedFilter.contains(CopyrightFilter.STATUS_FILTER))
-			// queryBuilder.singleEqualCondition(SolrCopyrightView.REVIEW_STATUS_PROPERTY,
-			// reviewStatusFilter.getDatabaseValue().toString());
-			//
-			// // apply sort to query
-			// for (SolrSortField field : sortStack) {
-			// SolrQuery.ORDER order = field.getOrder();
-			// if (order != null)
-			// queryBuilder.addSortField(field.getFieldName(), order);
-			// }
+	            if (sortStack != null)
+	                sortStack.forEach(sortField -> queryBuilder.addSortField(sortField.getFieldName(), sortField.getOrder()));
 
-			// run query
-			SolrQuery query = queryBuilder
-					.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
-					.setCount(pagination.getMaxRowsPerPage()).build();
-			SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
-			log.debug("Response has " + response.getCount() + " items");
-			return response;
+	            List<SolrQueryField> filter = buildFilterParams();
+	            filter.forEach(param -> queryBuilder.and(param));
 
-		} catch (SolrServerException e) {
-			log.error("could not query solr", e);
-			return new SolrResponse<SolrCopyrightView>();
+	            SolrQuery query = queryBuilder.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
+	                    .setCount(pagination.getMaxRowsPerPage())
+	                    .build();
 
-		}
+	            return solrService.query(SolrCopyrightView.class, query);
 
-	}
+	        } catch (SolrServerException e) {
+	            log.error("could not query solr server", e);
+	            return null;
+	        }
+	    }
+	
+	
+	
+	
+	
+	
+	
+//	public SolrResponse getCopyrightReviews() {
+//
+//		try {
+//			// filter by query string
+//			SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
+//
+//			// if (query != null &&
+//			// appliedFilter.contains(CopyrightFilter.QUERY_FILTER)) {
+//			// queryBuilder.singleCondition(SolrCopyrightView.SEARCH_FIELD_PROPERTY,
+//			// this.query);
+//			// }
+//			//
+//			// // apply select filters
+//			// if (mimeFilter != null &&
+//			// appliedFilter.contains(CopyrightFilter.MIME_FILTER))
+//			// queryBuilder.singleCondition(SolrCopyrightView.MIME_TYPE_PROPERTY,
+//			// mimeFilter);
+//			// if (reviewStatusFilter != null &&
+//			// appliedFilter.contains(CopyrightFilter.STATUS_FILTER))
+//			// queryBuilder.singleEqualCondition(SolrCopyrightView.REVIEW_STATUS_PROPERTY,
+//			// reviewStatusFilter.getDatabaseValue().toString());
+//			//
+//			// // apply sort to query
+//			// for (SolrSortField field : sortStack) {
+//			// SolrQuery.ORDER order = field.getOrder();
+//			// if (order != null)
+//			// queryBuilder.addSortField(field.getFieldName(), order);
+//			// }
+//
+//			// run query
+//			SolrQuery query = queryBuilder
+//					.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
+//					.setCount(pagination.getMaxRowsPerPage()).build();
+//			SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
+//			log.debug("Response has " + response.getCount() + " items");
+//			return response;
+//
+//		} catch (SolrServerException e) {
+//			log.error("could not query solr", e);
+//			return new SolrResponse<SolrCopyrightView>();
+//
+//		}
+//
+//	}
+	
+	
+    private List<SolrQueryField> buildFilterParams() {
+        List<SolrQueryField> result = new ArrayList<>();
+        if (collectionID != null) {
+            result.add(new SolrNumberQueryField(SolrScanJobView.COLLECTION_ID_PROPERTY, collectionID));
+        }
+        return result;
+    }
+	
+	
 
 	// solr transferobject
 
