@@ -19,13 +19,18 @@ package unidue.rc.ui.pages.jobs;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.tapestry5.ClientBodyElement;
+import org.apache.tapestry5.EventConstants;
 import org.apache.tapestry5.PersistenceConstants;
 import org.apache.tapestry5.SelectModel;
 import org.apache.tapestry5.ValueEncoder;
@@ -54,17 +59,16 @@ import unidue.rc.search.SolrQueryField;
 import unidue.rc.search.SolrResponse;
 import unidue.rc.search.SolrService;
 import unidue.rc.search.SolrSortField;
+import unidue.rc.search.SolrTextQueryField;
 import unidue.rc.ui.ProtectedPage;
+import unidue.rc.ui.components.AjaxSortLink;
+import unidue.rc.ui.components.AjaxSortLink.SortState;
 import unidue.rc.ui.components.Pagination;
 import unidue.rc.ui.selectmodel.LibraryLocationSelectModel;
 import unidue.rc.ui.valueencoder.LibraryLocationValueEncoder;
 
 @ProtectedPage
 public class CopyrightReviewJobs {
-
-	// private enum BlockDefinition {
-	// Batch, EditJob
-	// }
 
 	@Inject
 	private Logger log;
@@ -91,42 +95,36 @@ public class CopyrightReviewJobs {
 	private AjaxResponseRenderer ajaxRenderer;
 
 	@InjectComponent
-	private Zone jobsZone, paginationZone;
+	private Zone filterZone, jobsZone, paginationZone;
 
-    // pagination
-    @InjectComponent
-    private Pagination pagination;
+	// pagination
+	@InjectComponent
+	private Pagination pagination;
 
 	// sort
-    @Persist(PersistenceConstants.SESSION)
-    private List<SolrSortField> sortStack;
-	
-	
+	@Persist(PersistenceConstants.SESSION)
+	private List<SolrSortField> sortStack;
+
 	// Filter
 	@Property
 	@Persist(PersistenceConstants.SESSION)
-	private Integer collectionID;
-	
-	
+	private Integer filterCollectionID;
+
 	@Property
 	@Persist(PersistenceConstants.SESSION)
-	private LibraryLocation fLocation;
+	private String filterFilename;
 
-	
+	@Property
+	@Persist(PersistenceConstants.SESSION)
+	private LibraryLocation filterLocation;
+
 	@SetupRender
-    void onSetupRender() {
+	void onSetupRender() {
 
-        if (sortStack == null)
-            sortStack = new LinkedList<>();
-    }
+		if (sortStack == null)
+			sortStack = new LinkedList<>();
+	}
 
-	
-	
-	
-	
-	
-	
-	
 	public SelectModel getLibraryLocationSelectModel() {
 		return new LibraryLocationSelectModel(libraryLocationDAO);
 	}
@@ -139,145 +137,99 @@ public class CopyrightReviewJobs {
 	@OnEvent(value = "collectionIDChanged")
 	Object onCollectionIDChanged() {
 		String param = request.getParameter("param");
-		collectionID = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
+		filterCollectionID = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
+
+		return onFilterChange();
+	}
+
+	@OnEvent(value = "filterFilenameChanged")
+	Object onValueChangedFromAuthor() {
+		filterFilename = request.getParameter("param");
+
+		return onFilterChange();
+	}
+
+	@OnEvent(value = EventConstants.VALUE_CHANGED, component = "locationFilter")
+	Object onValueChangedFromLocationFilter(LibraryLocation location) {
+		filterLocation = location;
 
 		return onFilterChange();
 	}
 
 	private Object onFilterChange() {
 
-        pagination.resetCurrentPage();
+		pagination.resetCurrentPage();
 
-        if (request.isXHR()) {
-            ajaxRenderer.addRender(paginationZone);
-        }
+		if (request.isXHR()) {
+			ajaxRenderer.addRender(paginationZone);
+		}
 
-        return request.isXHR()
-               ? jobsZone.getBody()
-               : this;
-    }
-	
-	
-    /**
-     * Called when the number of results per page is changed in pagination-component
-     */
-    @OnEvent(component = "pagination", value = "change")
-    void onValueChanged() {
-        if(request.isXHR())
-            ajaxRenderer.addRender(jobsZone)
-                    .addRender(paginationZone);
-    }
+		return request.isXHR() ? jobsZone.getBody() : this;
+	}
 
-    /**
-     * is called when user selects another page in pagination
-     */
-    void onUpdateZones() {
-        if(request.isXHR())
-            ajaxRenderer.addRender(jobsZone)
-                    .addRender(paginationZone);
-    }
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	/**
+	 * Called when the number of results per page is changed in
+	 * pagination-component
+	 */
+	@OnEvent(component = "pagination", value = "change")
+	void onValueChanged() {
+		if (request.isXHR())
+			ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
+	}
+
+	/**
+	 * is called when user selects another page in pagination
+	 */
+	void onUpdateZones() {
+		if (request.isXHR())
+			ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
+	}
+
 	// solr item request
-	
-	  public SolrResponse getCopyrightReviews() {
 
-	        sortStack = sortStack == null
-	                    ? Collections.EMPTY_LIST
-	                    : sortStack;
-	        try {
-	            SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
+	public SolrResponse<SolrCopyrightView> getCopyrightReviews() {
 
-	            if (sortStack != null)
-	                sortStack.forEach(sortField -> queryBuilder.addSortField(sortField.getFieldName(), sortField.getOrder()));
+		sortStack = sortStack == null ? Collections.EMPTY_LIST : sortStack;
+		try {
+			SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
 
-	            List<SolrQueryField> filter = buildFilterParams();
-	            filter.forEach(param -> queryBuilder.and(param));
+			if (sortStack != null)
+				sortStack.forEach(
+						sortField -> queryBuilder.addSortField(sortField.getFieldName(), sortField.getOrder()));
 
-	            SolrQuery query = queryBuilder.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
-	                    .setCount(pagination.getMaxRowsPerPage())
-	                    .build();
+			List<SolrQueryField> filter = buildFilterParams();
+			filter.forEach(param -> queryBuilder.and(param));
 
-	            return solrService.query(SolrCopyrightView.class, query);
+			SolrQuery query = queryBuilder
+					.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
+					.setCount(pagination.getMaxRowsPerPage()).build();
 
-	        } catch (SolrServerException e) {
-	            log.error("could not query solr server", e);
-	            return null;
-	        }
-	    }
-	
-	
-	
-	
-	
-	
-	
-//	public SolrResponse getCopyrightReviews() {
-//
-//		try {
-//			// filter by query string
-//			SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
-//
-//			// if (query != null &&
-//			// appliedFilter.contains(CopyrightFilter.QUERY_FILTER)) {
-//			// queryBuilder.singleCondition(SolrCopyrightView.SEARCH_FIELD_PROPERTY,
-//			// this.query);
-//			// }
-//			//
-//			// // apply select filters
-//			// if (mimeFilter != null &&
-//			// appliedFilter.contains(CopyrightFilter.MIME_FILTER))
-//			// queryBuilder.singleCondition(SolrCopyrightView.MIME_TYPE_PROPERTY,
-//			// mimeFilter);
-//			// if (reviewStatusFilter != null &&
-//			// appliedFilter.contains(CopyrightFilter.STATUS_FILTER))
-//			// queryBuilder.singleEqualCondition(SolrCopyrightView.REVIEW_STATUS_PROPERTY,
-//			// reviewStatusFilter.getDatabaseValue().toString());
-//			//
-//			// // apply sort to query
-//			// for (SolrSortField field : sortStack) {
-//			// SolrQuery.ORDER order = field.getOrder();
-//			// if (order != null)
-//			// queryBuilder.addSortField(field.getFieldName(), order);
-//			// }
-//
-//			// run query
-//			SolrQuery query = queryBuilder
-//					.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
-//					.setCount(pagination.getMaxRowsPerPage()).build();
-//			SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
-//			log.debug("Response has " + response.getCount() + " items");
-//			return response;
-//
-//		} catch (SolrServerException e) {
-//			log.error("could not query solr", e);
-//			return new SolrResponse<SolrCopyrightView>();
-//
-//		}
-//
-//	}
-	
-	
-    private List<SolrQueryField> buildFilterParams() {
-        List<SolrQueryField> result = new ArrayList<>();
-        if (collectionID != null) {
-            result.add(new SolrNumberQueryField(SolrScanJobView.COLLECTION_ID_PROPERTY, collectionID));
-        }
-        return result;
-    }
-	
-	
+			SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
+
+			return response;
+
+		} catch (SolrServerException e) {
+			log.error("could not query solr server", e);
+			return null;
+		}
+	}
+
+	private List<SolrQueryField> buildFilterParams() {
+		List<SolrQueryField> result = new ArrayList<>();
+
+		if (StringUtils.isNotBlank(filterFilename)) {
+			result.add(new SolrTextQueryField(SolrCopyrightView.FILE_NAME_PROPERTY, filterFilename));
+		}
+
+		if (filterCollectionID != null) {
+			result.add(new SolrNumberQueryField(SolrCopyrightView.COLLECTION_ID_PROPERTY, filterCollectionID));
+		}
+
+		if (filterLocation != null) {
+			result.add(new SolrNumberQueryField(SolrScanJobView.LOCATION_ID_PROPERTY, filterLocation.getId()));
+		}
+		return result;
+	}
 
 	// solr transferobject
 
@@ -320,5 +272,52 @@ public class CopyrightReviewJobs {
 			iconFileName = "unknown.png";
 		Resource asset = assetSource.resourceForPath("context:img/mimetypes/" + iconFileName);
 		return asset.getFile();
+	}
+
+	// ajax sort
+	@OnEvent(value = "sort")
+	void onSort(String column, AjaxSortLink.SortState newSortState) {
+
+		SolrQuery.ORDER solrOrder = getSolrOrder(newSortState);
+		Optional<SolrSortField> sortItem = sortStack.stream().filter(item -> item.getFieldName().equals(column))
+				.findAny();
+
+		// if the user has already sorted after column
+		if (sortItem.isPresent()) {
+			SolrSortField sortField = sortItem.get();
+			// apply next order if given
+			if (solrOrder != null)
+				sortField.setOrder(solrOrder);
+
+			// otherwise remove ordering (do not just set to null!)
+			else
+				sortStack.remove(sortField);
+		}
+
+		// else if sort is asc or desc add the field
+		else if (solrOrder != null) {
+			SolrSortField sortField = new SolrSortField(column);
+			sortField.setOrder(solrOrder);
+			sortStack.add(sortField);
+		}
+
+		addAjaxRender(jobsZone, filterZone);
+	}
+
+	private static SolrQuery.ORDER getSolrOrder(SortState sortState) {
+		switch (sortState) {
+		case Ascending:
+			return SolrQuery.ORDER.asc;
+		case Descending:
+			return SolrQuery.ORDER.desc;
+		case NoSort:
+		default:
+			return null;
+		}
+	}
+
+	private void addAjaxRender(ClientBodyElement... elements) {
+		if (request.isXHR())
+			Arrays.stream(elements).forEach(e -> ajaxRenderer.addRender(e));
 	}
 }

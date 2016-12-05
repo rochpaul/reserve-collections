@@ -22,35 +22,62 @@
 
                     <!-- ordered column names -->
                     <tr>
-                        <th>${message:reserve.collection.abbr}</th>
+                        <th>
+                            ${message:reserve.collection.abbr}
+                            <t:ajaxsortlink for="collectionID" />
+
+                        </th>
                         <th>${message:modified}</th>
-                        <th>${message:libraryLocation-label}</th>
-                        <th>${message:filename}</th>
+                        <th>
+                            ${message:libraryLocation-label}
+                            <t:ajaxsortlink for="locationName" />
+                        </th>
+
+
+                        <th>
+                            ${message:filename}
+                            <t:ajaxsortlink for="fileName" />
+                        </th>
                         <th>${message:mime.type}</th>
-                        <th>${message:status}</th>
+
+                        <th>
+                            ${message:status}
+                            <t:ajaxsortlink for="statusLabel" />
+                        </th>
                     </tr>
                     <tr>
-                        <th></th>
-
                         <th>
                             <t:zone t:id="filterZone" id="filterZone" update="none">
                                 <t:form t:id="filterForm" t:clientValidation="none" zone="^">
-                                    <t:textfield value="collectionID" id="collectionID" class="form-control input-sm"
+                                    <t:textfield value="filterCollectionID" id="filterCollectionID" class="form-control input-sm"
                                         t:mixins="zoneUpdater" t:clientEvent="keyup" t:event="collectionIDChanged"
                                         t:zone="jobsZone" />
                                 </t:form>
                             </t:zone>
                         </th>
+                        <th></th>
 
                         <th>
                             <t:zone t:id="locationZone" id="locationZone" update="none">
                                 <t:form t:id="locationForm" t:clientValidation="none" zone="^">
-                                    <t:select value="fLocation" model="libraryLocationSelectModel" t:id="locationFilter"
+                                    <t:select value="filterLocation" model="libraryLocationSelectModel" t:id="locationFilter"
                                         id="libraryLocation" zone="jobsZone" class="form-control input-sm" encoder="libraryLocationEncoder"
                                         blankLabel="message:blank-label" />
                                 </t:form>
                             </t:zone>
                         </th>
+
+
+                        <th>
+                            <t:zone t:id="filenameZone" id="filenameZone" update="none">
+                                <t:form t:id="filenameForm" t:clientValidation="none" zone="^">
+                                    <t:textfield value="filterFilename" id="filterFilename" class="form-control input-sm"
+                                        t:mixins="zoneUpdater" t:clientEvent="keyup" t:event="filterFilenameChanged"
+                                        t:zone="jobsZone" />
+                                </t:form>
+                            </t:zone>
+                        </th>
+
                     </tr>
                 </thead>
 
