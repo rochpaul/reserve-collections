@@ -19,8 +19,8 @@
         <div class="col-lg-8">
             <table class="table table-hover">
                 <thead>
-                
-<!--                 ordered column names -->
+
+                    <!-- ordered column names -->
                     <tr>
                         <th>${message:reserve.collection.abbr}</th>
                         <th>${message:modified}</th>
@@ -32,14 +32,15 @@
                     <tr>
                         <th></th>
 
-   <th>
-                    <t:zone t:id="filterZone" id="filterZone" update="none">
-                        <t:form t:id="filterForm" t:clientValidation="none" zone="^">
-                            <t:textfield value="collectionID" id="collectionID" class="form-control input-sm" t:mixins="zoneUpdater"
-                                         t:clientEvent="keyup" t:event="onCollectionIDChanged" t:zone="jobsZone"/>
-                        </t:form>
-                    </t:zone>
-                    </th>
+                        <th>
+                            <t:zone t:id="filterZone" id="filterZone" update="none">
+                                <t:form t:id="filterForm" t:clientValidation="none" zone="^">
+                                    <t:textfield value="collectionID" id="collectionID" class="form-control input-sm"
+                                        t:mixins="zoneUpdater" t:clientEvent="keyup" t:event="collectionIDChanged"
+                                        t:zone="jobsZone" />
+                                </t:form>
+                            </t:zone>
+                        </th>
 
                         <th>
                             <t:zone t:id="locationZone" id="locationZone" update="none">
@@ -54,31 +55,30 @@
                 </thead>
 
 
-
-<!-- solrfield layout -->
+                <!-- solrfield layout -->
                 <tbody t:type="zone" t:id="jobsZone" id="jobsZone" t:update="none">
                     <t:loop source="copyrightReviews.items" value="review">
                         <tr style="color: ${prop:statusColor};">
-                        
+
                             <td>${review.collectionID}</td>
-                            
+
                             <td>
                                 <t:output t:value="review.modified" format="modifiedOutputFormat" />
                             </td>
-                            
+
                             <td>${review.locationName}</td>
-                            
+
                             <td>
                                 <t:pagelink page="entry/download" context="[review.resourceID,'inline']"
                                     title="${review.fileName}" target="_blank">${review.fileName}</t:pagelink>
                             </td>
-                            
+
                             <td>
                                 <t:if test="mimeTypeIcon">
                                     <img src="${context:/img/mimetypes}/${mimeTypeIcon}" />
                                 </t:if>
                             </td>
-                            
+
                             <td>
                                 <div class="circle-container">
                                     ${statusLabel}

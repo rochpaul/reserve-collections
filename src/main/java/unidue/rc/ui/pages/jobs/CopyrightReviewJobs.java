@@ -1,5 +1,21 @@
 package unidue.rc.ui.pages.jobs;
 
+/**
+ * Copyright (C) 2014 - 2016 Universitaet Duisburg-Essen (semapp|uni-due.de)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -7,7 +23,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -39,7 +54,6 @@ import unidue.rc.search.SolrQueryField;
 import unidue.rc.search.SolrResponse;
 import unidue.rc.search.SolrService;
 import unidue.rc.search.SolrSortField;
-import unidue.rc.search.SolrTextQueryField;
 import unidue.rc.ui.ProtectedPage;
 import unidue.rc.ui.components.Pagination;
 import unidue.rc.ui.selectmodel.LibraryLocationSelectModel;
@@ -79,9 +93,9 @@ public class CopyrightReviewJobs {
 	@InjectComponent
 	private Zone jobsZone, paginationZone;
 
-	// pagination
-	@InjectComponent
-	private Pagination pagination;
+    // pagination
+    @InjectComponent
+    private Pagination pagination;
 
 	// sort
     @Persist(PersistenceConstants.SESSION)
@@ -97,10 +111,6 @@ public class CopyrightReviewJobs {
 	@Property
 	@Persist(PersistenceConstants.SESSION)
 	private LibraryLocation fLocation;
-
-	@Property
-	@Persist(PersistenceConstants.SESSION)
-	private Integer fNumber;
 
 	
 	@SetupRender
@@ -129,23 +139,57 @@ public class CopyrightReviewJobs {
 	@OnEvent(value = "collectionIDChanged")
 	Object onCollectionIDChanged() {
 		String param = request.getParameter("param");
-		fNumber = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
+		collectionID = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
 
 		return onFilterChange();
 	}
 
 	private Object onFilterChange() {
 
-		pagination.resetCurrentPage();
+        pagination.resetCurrentPage();
 
-		if (request.isXHR()) {
-			ajaxRenderer.addRender(paginationZone);
-		}
+        if (request.isXHR()) {
+            ajaxRenderer.addRender(paginationZone);
+        }
 
-		return request.isXHR() ? jobsZone.getBody() : this;
-	}
-
+        return request.isXHR()
+               ? jobsZone.getBody()
+               : this;
+    }
 	
+	
+    /**
+     * Called when the number of results per page is changed in pagination-component
+     */
+    @OnEvent(component = "pagination", value = "change")
+    void onValueChanged() {
+        if(request.isXHR())
+            ajaxRenderer.addRender(jobsZone)
+                    .addRender(paginationZone);
+    }
+
+    /**
+     * is called when user selects another page in pagination
+     */
+    void onUpdateZones() {
+        if(request.isXHR())
+            ajaxRenderer.addRender(jobsZone)
+                    .addRender(paginationZone);
+    }
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	// solr item request
 	
 	  public SolrResponse getCopyrightReviews() {
 
