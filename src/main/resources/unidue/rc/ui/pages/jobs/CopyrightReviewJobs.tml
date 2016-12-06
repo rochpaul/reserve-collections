@@ -1,17 +1,3 @@
-<!-- Ort "3" -->
-<!-- URL "5" -->
-
-<!-- Semapp 2 -->
-<!-- Eintrag -->
-<!-- X Geändert 1 -->
-<!-- Datei 4 - -->
-<!-- X Dateityp 6 -> Mapping vom Bild auf Dateityp(?) Soll übernommen werden! -->
-<!-- Status 7 -> Auch hier die Farbe übernehmen aus CopyrightReviewStatus -->
-
-<!-- Bearbeitungsbutton (siehe scanjobs) -->
-
-
-
 <html t:type="adminlayout" title="${message:copyright.review.jobs.page.title}" xmlns:t="http://tapestry.apache.org/schema/tapestry_5_3.xsd">
 
     <div class="row">
@@ -42,7 +28,7 @@
 
                         <th>
                             ${message:status}
-                            <t:ajaxsortlink for="statusLabel" />
+                            <t:ajaxsortlink for="reviewStatus" />
                         </th>
                     </tr>
                     <tr>
@@ -112,6 +98,13 @@
                                     <span class="circle" style="border-color: ${statusColor};" />
                                 </div>
                             </td>
+
+                            <td>
+                                <t:eventlink zone="jobsZone" event="editJob" context="review.collectionID"
+                                    t:id="editJobLink">
+                                    <span class="glyphicon glyphicon-edit"></span>
+                                </t:eventlink>
+                            </td>
                         </tr>
                     </t:loop>
                 </tbody>
@@ -123,6 +116,28 @@
                     itemCount="copyrightReviews.count"></t:pagination>
             </t:zone>
         </div>
+
+        <aside class="col-lg-4 shadow-left">
+
+            <t:delegate to="editJobBlock" />
+
+        </aside>
+
+
     </div>
+
+
+
+    <t:block t:id="editJobBlock" id="editJobBlock">
+
+        <t:zone t:id="editJobZone" id="editJobZone" update="none" class="row bg-main">
+            <t:if test="isBlockVisible('EditJob')">
+                <form t:type="form" class="form-horizontal" t:clientValidation="none" t:id="edit_scan_job_form"
+                    t:zone="^">
+                    <h3>ausprobieren</h3>
+                </form>
+            </t:if>
+        </t:zone>
+    </t:block>
 
 </html>

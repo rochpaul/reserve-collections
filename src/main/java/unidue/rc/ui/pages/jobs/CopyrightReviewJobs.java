@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.tapestry5.Block;
 import org.apache.tapestry5.ClientBodyElement;
 import org.apache.tapestry5.EventConstants;
 import org.apache.tapestry5.PersistenceConstants;
@@ -39,6 +40,7 @@ import org.apache.tapestry5.annotations.OnEvent;
 import org.apache.tapestry5.annotations.Persist;
 import org.apache.tapestry5.annotations.Property;
 import org.apache.tapestry5.annotations.SetupRender;
+import org.apache.tapestry5.corelib.components.EventLink;
 import org.apache.tapestry5.corelib.components.Zone;
 import org.apache.tapestry5.ioc.Messages;
 import org.apache.tapestry5.ioc.Resource;
@@ -70,6 +72,10 @@ import unidue.rc.ui.valueencoder.LibraryLocationValueEncoder;
 @ProtectedPage
 public class CopyrightReviewJobs {
 
+	private enum BlockDefinition {
+		EditJob
+	}
+
 	@Inject
 	private Logger log;
 
@@ -95,7 +101,7 @@ public class CopyrightReviewJobs {
 	private AjaxResponseRenderer ajaxRenderer;
 
 	@InjectComponent
-	private Zone filterZone, jobsZone, paginationZone;
+	private Zone editJobZone, filterZone, jobsZone, paginationZone;
 
 	// pagination
 	@InjectComponent
@@ -118,11 +124,33 @@ public class CopyrightReviewJobs {
 	@Persist(PersistenceConstants.SESSION)
 	private LibraryLocation filterLocation;
 
+	@Property(write = false)
+	@Inject
+	private Block editJobBlock;
+
+	@InjectComponent("editJobLink")
+	@Property(write = false)
+	private EventLink editJobLink;
+
 	@SetupRender
 	void onSetupRender() {
 
 		if (sortStack == null)
 			sortStack = new LinkedList<>();
+	}
+
+	// edit part
+	@OnEvent(value = "editJob")
+	void onEditJob(int collectionID) {
+		// try {
+
+		// loadEditJobData(scanJobID);
+		visibleBlock = BlockDefinition.EditJob;
+		addAjaxRender(editJobZone);
+
+		// } catch (SolrServerException e) {
+		// log.error("could not get scan job from solr", e);
+		// }
 	}
 
 	public SelectModel getLibraryLocationSelectModel() {
@@ -316,8 +344,19 @@ public class CopyrightReviewJobs {
 		}
 	}
 
+	@Property(write = false)
+	@Persist(PersistenceConstants.FLASH)
+	private BlockDefinition visibleBlock;
+
 	private void addAjaxRender(ClientBodyElement... elements) {
 		if (request.isXHR())
 			Arrays.stream(elements).forEach(e -> ajaxRenderer.addRender(e));
 	}
+
+	public boolean isBlockVisible(String name) {
+		Optional<BlockDefinition> block = Arrays.stream(BlockDefinition.values()).filter(d -> d.name().equals(name))
+				.findFirst();
+		return block.isPresent() && block.get().equals(visibleBlock);
+	}
+
 }
