@@ -142,16 +142,34 @@ public class CopyrightReviewJobs {
 	// edit part
 	@OnEvent(value = "editJob")
 	void onEditJob(int collectionID) {
-		// try {
+		 try {
 
-		// loadEditJobData(scanJobID);
+		 loadEditJobData(collectionID);
 		visibleBlock = BlockDefinition.EditJob;
 		addAjaxRender(editJobZone);
 
-		// } catch (SolrServerException e) {
-		// log.error("could not get scan job from solr", e);
-		// }
+		 } catch (SolrServerException e) {
+		 log.error("could not get copyright review job from solr", e);
+		 }
 	}
+	
+	
+	
+	
+	  @Property(write = false)
+	    private Resource editingResource;
+	
+	private void loadEditJobData(int collectionID) throws SolrServerException {
+		
+		
+		
+	}
+	
+	
+	
+	
+	
+	
 
 	public SelectModel getLibraryLocationSelectModel() {
 		return new LibraryLocationSelectModel(libraryLocationDAO);
