@@ -92,6 +92,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public File download(Resource resource, User user) {
+        if (!resource.isFileAvailable())
+            return null;
+
         String filesDir = config.getString("files.store");
 
         if (user != null) {
@@ -231,9 +234,14 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void deleteFile(Resource resource) throws CommitException {
+    public void setFileDeleted(Resource resource) throws CommitException {
         resource.setFileDeleted(new Date());
         resourceDAO.update(resource);
+    }
+
+    @Override
+    public ResourceDAO.FileDeleteStatus deleteFile(Resource resource) throws CommitException {
+        return resourceDAO.deleteFile(resource);
     }
 
     private void rebuildSearchIndex() {
