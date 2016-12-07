@@ -43,7 +43,6 @@ import org.apache.tapestry5.annotations.SetupRender;
 import org.apache.tapestry5.corelib.components.EventLink;
 import org.apache.tapestry5.corelib.components.Zone;
 import org.apache.tapestry5.ioc.Messages;
-import org.apache.tapestry5.ioc.Resource;
 import org.apache.tapestry5.ioc.annotations.Inject;
 import org.apache.tapestry5.services.AssetSource;
 import org.apache.tapestry5.services.Request;
@@ -51,8 +50,10 @@ import org.apache.tapestry5.services.ajax.AjaxResponseRenderer;
 import org.slf4j.Logger;
 
 import unidue.rc.dao.LibraryLocationDAO;
+import unidue.rc.dao.ResourceDAO;
 import unidue.rc.model.CopyrightReviewStatus;
 import unidue.rc.model.LibraryLocation;
+import unidue.rc.model.Resource;
 import unidue.rc.model.solr.SolrCopyrightView;
 import unidue.rc.model.solr.SolrScanJobView;
 import unidue.rc.search.SolrNumberQueryField;
@@ -89,10 +90,16 @@ public class CopyrightReviewJobs {
 
 	@Property
 	private SolrCopyrightView review;
+	
+	@Property
+	private Resource resource;
 
 	// other
 	@Inject
 	private LibraryLocationDAO libraryLocationDAO;
+	
+	@Inject
+	private ResourceDAO resourceDAO;;
 
 	@Inject
 	private Request request;
@@ -141,10 +148,10 @@ public class CopyrightReviewJobs {
 
 	// edit part
 	@OnEvent(value = "editJob")
-	void onEditJob(int collectionID) {
+	void onEditJob(int resourceID) {
 		 try {
 
-		 loadEditJobData(collectionID);
+		 loadEditJobData(resourceID);
 		visibleBlock = BlockDefinition.EditJob;
 		addAjaxRender(editJobZone);
 
@@ -156,13 +163,27 @@ public class CopyrightReviewJobs {
 	
 	
 	
-	  @Property(write = false)
-	    private Resource editingResource;
+	  
+	   @Property
+	    private String fullTextURL;
+	   
+	   @Property
+	    private CopyrightReviewStatus copyrightStatus;
+	   
+	   @Property
+	    private Boolean isDeleted;
+	   
 	
-	private void loadEditJobData(int collectionID) throws SolrServerException {
+	private void loadEditJobData(int resourceID) throws SolrServerException {
 		
+		review = solrService.getById(SolrCopyrightView.class, Integer.toString(resourceID));
+		resource =  resourceDAO.getResourceById(resourceID);
 		
+		isDeleted = !resource.isFileAvailable();
 		
+		copyrightStatus = resource.getCopyrightReviewStatus();
+		
+		fullTextURL = resource.getFullTextURL();
 	}
 	
 	
@@ -316,7 +337,7 @@ public class CopyrightReviewJobs {
 			iconFileName = "text-plain.png";
 		else
 			iconFileName = "unknown.png";
-		Resource asset = assetSource.resourceForPath("context:img/mimetypes/" + iconFileName);
+		org.apache.tapestry5.ioc.Resource asset = assetSource.resourceForPath("context:img/mimetypes/" + iconFileName);
 		return asset.getFile();
 	}
 

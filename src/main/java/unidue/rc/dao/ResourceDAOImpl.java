@@ -17,6 +17,7 @@ package unidue.rc.dao;
 
 
 import org.apache.cayenne.BaseContext;
+import org.apache.cayenne.Cayenne;
 import org.apache.cayenne.ObjectContext;
 import org.apache.cayenne.Persistent;
 import org.apache.cayenne.di.Inject;
@@ -201,5 +202,10 @@ public class ResourceDAOImpl extends BaseDAOImpl implements ResourceDAO {
             deleteFile(resource);
         }
         super.delete(object);
+    }
+    
+    @Override
+    public Resource getResourceById(Integer resourceId) {
+        return Cayenne.objectForPK(BaseContext.getThreadObjectContext(), Resource.class, resourceId);
     }
 }

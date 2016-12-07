@@ -122,4 +122,6 @@ public interface ResourceDAO extends BaseDAO {
      * @return all resources used inside the collection or an empty list
      */
     List<Resource> getResourcesByCollection(ReserveCollection collection);
+
+	Resource getResourceById(Integer resourceId);
 }
