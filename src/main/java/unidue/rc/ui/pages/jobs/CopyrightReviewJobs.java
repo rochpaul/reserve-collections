@@ -47,6 +47,7 @@ import org.apache.tapestry5.ioc.annotations.Inject;
 import org.apache.tapestry5.services.AssetSource;
 import org.apache.tapestry5.services.Request;
 import org.apache.tapestry5.services.ajax.AjaxResponseRenderer;
+import org.apache.tapestry5.upload.services.UploadedFile;
 import org.slf4j.Logger;
 
 import unidue.rc.dao.LibraryLocationDAO;
@@ -73,329 +74,332 @@ import unidue.rc.ui.valueencoder.LibraryLocationValueEncoder;
 @ProtectedPage
 public class CopyrightReviewJobs {
 
-	private enum BlockDefinition {
-		EditJob
-	}
-
-	@Inject
-	private Logger log;
-
-	// solr
-	@Inject
-	private SolrService solrService;
-
-	@Property
-	@Persist
-	private String query;
-
-	@Property
-	private SolrCopyrightView review;
-	
-	@Property
-	private Resource resource;
-
-	// other
-	@Inject
-	private LibraryLocationDAO libraryLocationDAO;
-	
-	@Inject
-	private ResourceDAO resourceDAO;;
-
-	@Inject
-	private Request request;
-
-	@Inject
-	private AjaxResponseRenderer ajaxRenderer;
-
-	@InjectComponent
-	private Zone editJobZone, filterZone, jobsZone, paginationZone;
-
-	// pagination
-	@InjectComponent
-	private Pagination pagination;
-
-	// sort
-	@Persist(PersistenceConstants.SESSION)
-	private List<SolrSortField> sortStack;
-
-	// Filter
-	@Property
-	@Persist(PersistenceConstants.SESSION)
-	private Integer filterCollectionID;
-
-	@Property
-	@Persist(PersistenceConstants.SESSION)
-	private String filterFilename;
-
-	@Property
-	@Persist(PersistenceConstants.SESSION)
-	private LibraryLocation filterLocation;
-
-	@Property(write = false)
-	@Inject
-	private Block editJobBlock;
-
-	@InjectComponent("editJobLink")
-	@Property(write = false)
-	private EventLink editJobLink;
-
-	@SetupRender
-	void onSetupRender() {
-
-		if (sortStack == null)
-			sortStack = new LinkedList<>();
-	}
-
-	// edit part
-	@OnEvent(value = "editJob")
-	void onEditJob(int resourceID) {
-		 try {
-
-		 loadEditJobData(resourceID);
-		visibleBlock = BlockDefinition.EditJob;
-		addAjaxRender(editJobZone);
-
-		 } catch (SolrServerException e) {
-		 log.error("could not get copyright review job from solr", e);
-		 }
-	}
-	
-	
-	
-	
-	  
-	   @Property
-	    private String fullTextURL;
-	   
-	   @Property
-	    private CopyrightReviewStatus copyrightStatus;
-	   
-	   @Property
-	    private Boolean isDeleted;
-	   
-	
-	private void loadEditJobData(int resourceID) throws SolrServerException {
-		
-		review = solrService.getById(SolrCopyrightView.class, Integer.toString(resourceID));
-		resource =  resourceDAO.getResourceById(resourceID);
-		
-		isDeleted = !resource.isFileAvailable();
-		
-		copyrightStatus = resource.getCopyrightReviewStatus();
-		
-		fullTextURL = resource.getFullTextURL();
-	}
-	
-	
-	
-	
-	
-	
-
-	public SelectModel getLibraryLocationSelectModel() {
-		return new LibraryLocationSelectModel(libraryLocationDAO);
-	}
-
-	public ValueEncoder<LibraryLocation> getLibraryLocationEncoder() {
-		return new LibraryLocationValueEncoder(libraryLocationDAO);
-	}
-
-	// Filter changed
-	@OnEvent(value = "collectionIDChanged")
-	Object onCollectionIDChanged() {
-		String param = request.getParameter("param");
-		filterCollectionID = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
-
-		return onFilterChange();
-	}
-
-	@OnEvent(value = "filterFilenameChanged")
-	Object onValueChangedFromAuthor() {
-		filterFilename = request.getParameter("param");
-
-		return onFilterChange();
-	}
-
-	@OnEvent(value = EventConstants.VALUE_CHANGED, component = "locationFilter")
-	Object onValueChangedFromLocationFilter(LibraryLocation location) {
-		filterLocation = location;
-
-		return onFilterChange();
-	}
-
-	private Object onFilterChange() {
-
-		pagination.resetCurrentPage();
-
-		if (request.isXHR()) {
-			ajaxRenderer.addRender(paginationZone);
-		}
-
-		return request.isXHR() ? jobsZone.getBody() : this;
-	}
-
-	/**
-	 * Called when the number of results per page is changed in
-	 * pagination-component
-	 */
-	@OnEvent(component = "pagination", value = "change")
-	void onValueChanged() {
-		if (request.isXHR())
-			ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
-	}
-
-	/**
-	 * is called when user selects another page in pagination
-	 */
-	void onUpdateZones() {
-		if (request.isXHR())
-			ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
-	}
-
-	// solr item request
-
-	public SolrResponse<SolrCopyrightView> getCopyrightReviews() {
-
-		sortStack = sortStack == null ? Collections.EMPTY_LIST : sortStack;
-		try {
-			SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
-
-			if (sortStack != null)
-				sortStack.forEach(
-						sortField -> queryBuilder.addSortField(sortField.getFieldName(), sortField.getOrder()));
-
-			List<SolrQueryField> filter = buildFilterParams();
-			filter.forEach(param -> queryBuilder.and(param));
-
-			SolrQuery query = queryBuilder
-					.setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
-					.setCount(pagination.getMaxRowsPerPage()).build();
-
-			SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
-
-			return response;
-
-		} catch (SolrServerException e) {
-			log.error("could not query solr server", e);
-			return null;
-		}
-	}
-
-	private List<SolrQueryField> buildFilterParams() {
-		List<SolrQueryField> result = new ArrayList<>();
-
-		if (StringUtils.isNotBlank(filterFilename)) {
-			result.add(new SolrTextQueryField(SolrCopyrightView.FILE_NAME_PROPERTY, filterFilename));
-		}
-
-		if (filterCollectionID != null) {
-			result.add(new SolrNumberQueryField(SolrCopyrightView.COLLECTION_ID_PROPERTY, filterCollectionID));
-		}
-
-		if (filterLocation != null) {
-			result.add(new SolrNumberQueryField(SolrScanJobView.LOCATION_ID_PROPERTY, filterLocation.getId()));
-		}
-		return result;
-	}
-
-	// solr transferobject
-
-	@Inject
-	private Messages messages;
-
-	private static final Format MODIFIED_OUTPUT_FORMAT = new SimpleDateFormat("dd.MM.yy HH:mm");
-
-	@Inject
-	private AssetSource assetSource;
-
-	public String getStatusLabel() {
-		return messages.get(CopyrightReviewStatus.getName(review.getReviewStatus()));
-	}
-
-	public String getStatusColor() {
-		CopyrightReviewStatus reviewStatus = CopyrightReviewStatus.get(review.getReviewStatus());
-		return reviewStatus != null ? "#" + reviewStatus.getColor() : "transparent";
-	}
-
-	public Format getModifiedOutputFormat() {
-		return MODIFIED_OUTPUT_FORMAT;
-	}
-
-	public String getMimeTypeIcon() {
-		if (review.getMimeType() == null)
-			return null;
-
-		String mimeType = review.getMimeType();
-		String iconFileName;
-		if (mimeType.startsWith("video"))
-			iconFileName = "media-video.png";
-		else if (mimeType.startsWith("audio"))
-			iconFileName = "media-audio.png";
-		else if (mimeType.startsWith("image"))
-			iconFileName = "media-image.png";
-		else if (mimeType.startsWith("text"))
-			iconFileName = "text-plain.png";
-		else
-			iconFileName = "unknown.png";
-		org.apache.tapestry5.ioc.Resource asset = assetSource.resourceForPath("context:img/mimetypes/" + iconFileName);
-		return asset.getFile();
-	}
-
-	// ajax sort
-	@OnEvent(value = "sort")
-	void onSort(String column, AjaxSortLink.SortState newSortState) {
-
-		SolrQuery.ORDER solrOrder = getSolrOrder(newSortState);
-		Optional<SolrSortField> sortItem = sortStack.stream().filter(item -> item.getFieldName().equals(column))
-				.findAny();
-
-		// if the user has already sorted after column
-		if (sortItem.isPresent()) {
-			SolrSortField sortField = sortItem.get();
-			// apply next order if given
-			if (solrOrder != null)
-				sortField.setOrder(solrOrder);
-
-			// otherwise remove ordering (do not just set to null!)
-			else
-				sortStack.remove(sortField);
-		}
-
-		// else if sort is asc or desc add the field
-		else if (solrOrder != null) {
-			SolrSortField sortField = new SolrSortField(column);
-			sortField.setOrder(solrOrder);
-			sortStack.add(sortField);
-		}
-
-		addAjaxRender(jobsZone, filterZone);
-	}
-
-	private static SolrQuery.ORDER getSolrOrder(SortState sortState) {
-		switch (sortState) {
-		case Ascending:
-			return SolrQuery.ORDER.asc;
-		case Descending:
-			return SolrQuery.ORDER.desc;
-		case NoSort:
-		default:
-			return null;
-		}
-	}
-
-	@Property(write = false)
-	@Persist(PersistenceConstants.FLASH)
-	private BlockDefinition visibleBlock;
-
-	private void addAjaxRender(ClientBodyElement... elements) {
-		if (request.isXHR())
-			Arrays.stream(elements).forEach(e -> ajaxRenderer.addRender(e));
-	}
-
-	public boolean isBlockVisible(String name) {
-		Optional<BlockDefinition> block = Arrays.stream(BlockDefinition.values()).filter(d -> d.name().equals(name))
-				.findFirst();
-		return block.isPresent() && block.get().equals(visibleBlock);
-	}
+    @Property(write = false)
+    @Persist(PersistenceConstants.FLASH)
+    private BlockDefinition visibleBlock;
 
+    private enum BlockDefinition {
+        EditJob
+    }
+
+    @Inject
+    private Logger log;
+
+    @Inject
+    private Messages messages;
+
+    // DAO, Services
+    @Inject
+    private LibraryLocationDAO libraryLocationDAO;
+
+    @Inject
+    private ResourceDAO resourceDAO;;
+
+    @Inject
+    private SolrService solrService;
+
+    // model dependent
+    private static final Format MODIFIED_OUTPUT_FORMAT = new SimpleDateFormat("dd.MM.yy HH:mm");
+
+    // solr dependent
+    @Property
+    @Persist
+    private String query;
+
+    @Property
+    private SolrCopyrightView review;
+
+    @Property
+    private Resource resource;
+
+    // tapestry dependent
+    @Inject
+    private Request request;
+
+    @Inject
+    private AssetSource assetSource;
+
+    @Inject
+    private AjaxResponseRenderer ajaxRenderer;
+
+    @InjectComponent
+    private Zone editJobZone, filterZone, jobsZone, paginationZone;
+
+    // pagination
+    @InjectComponent
+    private Pagination pagination;
+
+    // filter sort part
+    @Persist(PersistenceConstants.SESSION)
+    private List<SolrSortField> sortStack;
+
+    @Property
+    @Persist(PersistenceConstants.SESSION)
+    private Integer filterCollectionID;
+
+    @Property
+    @Persist(PersistenceConstants.SESSION)
+    private String filterFilename;
+
+    @Property
+    @Persist(PersistenceConstants.SESSION)
+    private LibraryLocation filterLocation;
+
+    // edit dependent
+    @Property(write = false)
+    @Inject
+    private Block editJobBlock;
+
+    @InjectComponent("editJobLink")
+    @Property(write = false)
+    private EventLink editJobLink;
+
+    @Property
+    private String fullTextURL;
+
+    @Property
+    private CopyrightReviewStatus copyrightStatus;
+
+    @Property
+    private Boolean isDeleted;
+
+    @Property(write = false)
+    private Resource uploadedResource;
+
+    @Property
+    private boolean deleteFile;
+
+    @Property
+    @Persist
+    private List<UploadedFile> uploads;
+
+    @SetupRender
+    void onSetupRender() {
+
+        if (sortStack == null)
+            sortStack = new LinkedList<>();
+    }
+
+    // event based methodes
+    @OnEvent(value = "editJob")
+    void onEditJob(int resourceID) {
+        try {
+
+            loadEditJobData(resourceID);
+            visibleBlock = BlockDefinition.EditJob;
+            addAjaxRender(editJobZone);
+
+        } catch (SolrServerException e) {
+            log.error("could not get copyright review job from solr", e);
+        }
+    }
+
+    @OnEvent(value = "collectionIDChanged")
+    Object onCollectionIDChanged() {
+        String param = request.getParameter("param");
+        filterCollectionID = NumberUtils.isNumber(param) ? NumberUtils.toInt(param) : null;
+
+        return onFilterChange();
+    }
+
+    @OnEvent(value = "filterFilenameChanged")
+    Object onValueChangedFromAuthor() {
+        filterFilename = request.getParameter("param");
+
+        return onFilterChange();
+    }
+
+    @OnEvent(value = EventConstants.VALUE_CHANGED, component = "locationFilter")
+    Object onValueChangedFromLocationFilter(LibraryLocation location) {
+        filterLocation = location;
+
+        return onFilterChange();
+    }
+
+    /**
+     * Called when the number of results per page is changed in
+     * pagination-component
+     */
+    @OnEvent(component = "pagination", value = "change")
+    void onValueChanged() {
+        if (request.isXHR())
+            ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
+    }
+
+    // ajax sort
+    @OnEvent(value = "sort")
+    void onSort(String column, AjaxSortLink.SortState newSortState) {
+
+        SolrQuery.ORDER solrOrder = getSolrOrder(newSortState);
+        Optional<SolrSortField> sortItem = sortStack.stream().filter(item -> item.getFieldName().equals(column))
+                .findAny();
+
+        // if the user has already sorted after column
+        if (sortItem.isPresent()) {
+            SolrSortField sortField = sortItem.get();
+            // apply next order if given
+            if (solrOrder != null)
+                sortField.setOrder(solrOrder);
+
+            // otherwise remove ordering (do not just set to null!)
+            else
+                sortStack.remove(sortField);
+        }
+
+        // else if sort is asc or desc add the field
+        else if (solrOrder != null) {
+            SolrSortField sortField = new SolrSortField(column);
+            sortField.setOrder(solrOrder);
+            sortStack.add(sortField);
+        }
+
+        addAjaxRender(jobsZone, filterZone);
+    }
+
+    // solr methods
+    // solr item request
+    public SolrResponse<SolrCopyrightView> getCopyrightReviews() {
+
+        sortStack = sortStack == null ? Collections.emptyList() : sortStack;
+        try {
+            SolrQueryBuilder queryBuilder = solrService.createQueryBuilder();
+
+            if (sortStack != null)
+                sortStack.forEach(
+                        sortField -> queryBuilder.addSortField(sortField.getFieldName(), sortField.getOrder()));
+
+            List<SolrQueryField> filter = buildFilterParams();
+            filter.forEach(param -> queryBuilder.and(param));
+
+            SolrQuery query = queryBuilder
+                    .setOffset((pagination.getCurrentPageNumber() - 1) * pagination.getMaxRowsPerPage())
+                    .setCount(pagination.getMaxRowsPerPage()).build();
+
+            SolrResponse<SolrCopyrightView> response = solrService.query(SolrCopyrightView.class, query);
+
+            return response;
+
+        } catch (SolrServerException e) {
+            log.error("could not query solr server", e);
+            return null;
+        }
+    }
+
+    private List<SolrQueryField> buildFilterParams() {
+        List<SolrQueryField> result = new ArrayList<>();
+
+        if (StringUtils.isNotBlank(filterFilename)) {
+            result.add(new SolrTextQueryField(SolrCopyrightView.FILE_NAME_PROPERTY, filterFilename));
+        }
+
+        if (filterCollectionID != null) {
+            result.add(new SolrNumberQueryField(SolrCopyrightView.COLLECTION_ID_PROPERTY, filterCollectionID));
+        }
+
+        if (filterLocation != null) {
+            result.add(new SolrNumberQueryField(SolrScanJobView.LOCATION_ID_PROPERTY, filterLocation.getId()));
+        }
+        return result;
+    }
+
+    private static SolrQuery.ORDER getSolrOrder(SortState sortState) {
+        switch (sortState) {
+        case Ascending:
+            return SolrQuery.ORDER.asc;
+        case Descending:
+            return SolrQuery.ORDER.desc;
+        case NoSort:
+        default:
+            return null;
+        }
+    }
+
+    // model methods
+
+    public SelectModel getLibraryLocationSelectModel() {
+        return new LibraryLocationSelectModel(libraryLocationDAO);
+    }
+
+    public ValueEncoder<LibraryLocation> getLibraryLocationEncoder() {
+        return new LibraryLocationValueEncoder(libraryLocationDAO);
+    }
+
+    public String getMimeTypeIcon() {
+        if (review.getMimeType() == null)
+            return null;
+
+        String mimeType = review.getMimeType();
+        String iconFileName;
+        if (mimeType.startsWith("video"))
+            iconFileName = "media-video.png";
+        else if (mimeType.startsWith("audio"))
+            iconFileName = "media-audio.png";
+        else if (mimeType.startsWith("image"))
+            iconFileName = "media-image.png";
+        else if (mimeType.startsWith("text"))
+            iconFileName = "text-plain.png";
+        else
+            iconFileName = "unknown.png";
+        org.apache.tapestry5.ioc.Resource asset = assetSource.resourceForPath("context:img/mimetypes/" + iconFileName);
+        return asset.getFile();
+    }
+
+    public String getStatusLabel() {
+        return messages.get(CopyrightReviewStatus.getName(review.getReviewStatus()));
+    }
+
+    public String getStatusColor() {
+        CopyrightReviewStatus reviewStatus = CopyrightReviewStatus.get(review.getReviewStatus());
+        return reviewStatus != null ? "#" + reviewStatus.getColor() : "transparent";
+    }
+
+    public Format getModifiedOutputFormat() {
+        return MODIFIED_OUTPUT_FORMAT;
+    }
+
+    // edit methods
+    private void loadEditJobData(int resourceID) throws SolrServerException {
+
+        review = solrService.getById(SolrCopyrightView.class, Integer.toString(resourceID));
+        resource = resourceDAO.getResourceById(resourceID);
+
+        isDeleted = !resource.isFileAvailable();
+
+        copyrightStatus = resource.getCopyrightReviewStatus();
+
+        fullTextURL = resource.getFullTextURL();
+
+    }
+
+    // other methods
+
+    private void addAjaxRender(ClientBodyElement... elements) {
+        if (request.isXHR())
+            Arrays.stream(elements).forEach(e -> ajaxRenderer.addRender(e));
+    }
+
+    public boolean isBlockVisible(String name) {
+        Optional<BlockDefinition> block = Arrays.stream(BlockDefinition.values()).filter(d -> d.name().equals(name))
+                .findFirst();
+        return block.isPresent() && block.get().equals(visibleBlock);
+    }
+
+    private Object onFilterChange() {
+
+        pagination.resetCurrentPage();
+
+        if (request.isXHR()) {
+            ajaxRenderer.addRender(paginationZone);
+        }
+
+        return request.isXHR() ? jobsZone.getBody() : this;
+    }
+
+    /**
+     * is called when user selects another page in pagination
+     */
+    void onUpdateZones() {
+        if (request.isXHR())
+            ajaxRenderer.addRender(jobsZone).addRender(paginationZone);
+    }
 }
